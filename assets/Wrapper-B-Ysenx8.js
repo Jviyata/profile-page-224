@@ -1,0 +1,1 @@
+import{R as t,j as s,s as e}from"./index-C25Zltz3.js";const o=t.memo(function({title:a,children:r}){return s.jsxs("section",{className:e.sectionWrapper,children:[a&&s.jsx("h2",{className:e.sectionTitle,children:a}),s.jsx("div",{className:e.sectionContent,children:r})]})});export{o as W};
