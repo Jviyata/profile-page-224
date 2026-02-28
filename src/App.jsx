@@ -3,19 +3,13 @@
 import React, { useState, useCallback, useMemo, lazy, Suspense, useEffect, useContext } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import styles from './App.module.css';
-import { useProfileData } from './hooks/useProfileData';
-import { useFilterState } from './hooks/useFilterState';
-
-// Import components
 import Navbar from './components/Navbar';
 import ModeContext, { ModeProvider } from './context/ModeContext';
 
-// Import images
 import girl2 from './assets/girl2.png';
 import boy from './assets/boy.png';
 import girl from './assets/girl.png';
 
-// Lazy load pages
 const HomePage = lazy(() => import('./pages/HomePage'));
 const AboutPage = lazy(() => import('./pages/AboutPage'));
 const AddProfilePage = lazy(() => import('./pages/AddProfilePage'));
@@ -64,33 +58,41 @@ const initialProfiles = [
 ];
 
 function AppContent() {
-  // Use custom hooks
-  const {
-    profiles,
-    loading,
-    error,
-    availableTitles,
-    fetchFilteredProfiles,
-    addProfile,
-    deleteProfile,
-    resetProfiles
-  } = useProfileData(initialProfiles);
-
-  const {
-    roleFilter,
-    setRoleFilter,
-    searchText,
-    setSearchText,
-    reset: resetFilters
-  } = useFilterState();
-
-  const [currentPage, setCurrentPage] = useState('home');
+  const [profiles, setProfiles] = useState(initialProfiles);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [availableTitles, setAvailableTitles] = useState([]);
+  const [roleFilter, setRoleFilter] = useState('');
+  const [searchText, setSearchText] = useState('');
   const [selectedProfile, setSelectedProfile] = useState(null);
   const [viewMode, setViewMode] = useState('view');
 
   const { mode, toggleMode, isEditMode, setIsEditMode } = useContext(ModeContext);
 
-  // Call filtered API when filters change
+  useEffect(() => {
+    fetch('https://web.ics.purdue.edu/~zong6/profile-app/get-titles.php')
+      .then(res => res.json())
+      .then(data => setAvailableTitles(data.titles || []))
+      .catch(err => console.error('Error fetching titles:', err));
+  }, []);
+
+  const fetchFilteredProfiles = useCallback((role, search) => {
+    setLoading(true);
+    const params = new URLSearchParams();
+    if (role) params.append('title', role);
+    if (search) params.append('name', search);
+
+    fetch(`https://web.ics.purdue.edu/~zong6/profile-app/fetch-data-with-filter.php?${params}`)
+      .then(res => res.json())
+      .then(data => setProfiles(data.data || []))
+      .catch(err => setError('Failed to fetch'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const resetProfiles = useCallback(() => {
+    setProfiles(initialProfiles);
+  }, []);
+
   useEffect(() => {
     if (roleFilter || searchText) {
       fetchFilteredProfiles(roleFilter, searchText);
@@ -100,15 +102,12 @@ function AppContent() {
   }, [roleFilter, searchText, fetchFilteredProfiles, resetProfiles]);
 
   const handleReset = useCallback(() => {
-    resetFilters();
-  }, [resetFilters]);
-
-  const handleProfileClick = useCallback((profile) => {
-    setSelectedProfile(profile);
+    setRoleFilter('');
+    setSearchText('');
   }, []);
 
   const uniqueRoles = useMemo(() => 
-    availableTitles.length > 0 ? availableTitles : [...new Set(profiles.map(profile => profile.role))], 
+    availableTitles.length > 0 ? availableTitles : [...new Set(profiles.map(p => p.role))],
     [profiles, availableTitles]
   );
 
@@ -117,78 +116,18 @@ function AppContent() {
     [mode]
   );
 
-  const navbarProps = useMemo(() => ({
-    mode,
-    toggleMode,
-    isEditMode,
-    setIsEditMode
-  }), [mode, toggleMode, isEditMode, setIsEditMode]);
-
   return (
     <div className={appClass}>
-      <Navbar {...navbarProps} />
+      <Navbar mode={mode} toggleMode={toggleMode} isEditMode={isEditMode} setIsEditMode={setIsEditMode} />
       <Suspense fallback={<div className={styles.loadingMessage}>Loading...</div>}>
         <Routes>
-          <Route 
-            path="/" 
-            element={
-              <HomePage 
-                profiles={profiles}
-                viewMode={viewMode}
-                mode={mode}
-                roleFilter={roleFilter}
-                setRoleFilter={setRoleFilter}
-                searchText={searchText}
-                setSearchText={setSearchText}
-                handleReset={handleReset}
-                uniqueRoles={uniqueRoles}
-                setViewMode={setViewMode}
-                onProfileClick={handleProfileClick}
-                loading={loading}
-                error={error}
-                isEditMode={isEditMode}
-                onDeleteProfile={deleteProfile}
-              />
-            } 
-          />
+          <Route path="/" element={<HomePage profiles={profiles} viewMode={viewMode} mode={mode} roleFilter={roleFilter} setRoleFilter={setRoleFilter} searchText={searchText} setSearchText={setSearchText} handleReset={handleReset} uniqueRoles={uniqueRoles} setViewMode={setViewMode} loading={loading} error={error} isEditMode={isEditMode} onDeleteProfile={(id) => setProfiles(p => p.filter(pr => pr.id !== id))} />} />
           <Route path="/about" element={<AboutPage />} />
-          <Route 
-            path="/add-profile" 
-            element={<AddProfilePage onAddProfile={addProfile} mode={mode} />} 
-          />
-          <Route 
-            path="/other-profiles" 
-            element={
-              <FetchedProfilePage 
-                apiProfiles={profiles}
-                mode={mode}
-                viewMode={viewMode}
-                onProfileClick={handleProfileClick}
-                loading={loading}
-                error={error}
-                isEditMode={isEditMode}
-              />
-            } 
-          />
-          
-          <Route 
-            path="/profile" 
-            element={<ProfileLayout mode={mode} />}
-          >
-            <Route 
-              path=":id" 
-              element={
-                <ProfileDetailPage 
-                  profile={selectedProfile} 
-                  mode={mode} 
-                  isEditMode={isEditMode} 
-                  onDeleteProfile={deleteProfile}
-                  allProfiles={profiles}
-                />
-              } 
-            />
+          <Route path="/add-profile" element={<AddProfilePage onAddProfile={(p) => setProfiles(prev => [...prev, p])} mode={mode} />} />
+          <Route path="/other-profiles" element={<FetchedProfilePage apiProfiles={profiles} mode={mode} viewMode={viewMode} loading={loading} error={error} isEditMode={isEditMode} />} />
+          <Route path="/profile" element={<ProfileLayout mode={mode} />}>
+            <Route path=":id" element={<ProfileDetailPage profile={selectedProfile} mode={mode} isEditMode={isEditMode} onDeleteProfile={(id) => setProfiles(p => p.filter(pr => pr.id !== id))} allProfiles={profiles} />} />
           </Route>
-
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Suspense>

@@ -9,11 +9,5 @@ export function useFilterState() {
     setSearchText('');
   }, []);
 
-  return {
-    roleFilter,
-    setRoleFilter,
-    searchText,
-    setSearchText,
-    reset
-  };
+  return { roleFilter, setRoleFilter, searchText, setSearchText, reset };
 }

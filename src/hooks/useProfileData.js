@@ -203,42 +203,46 @@ export default function App() {
 
 export function useProfileData(initialProfiles) {
   const [profiles, setProfiles] = useState(initialProfiles);
-  const [apiProfiles, setApiProfiles] = useState(initialProfiles);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [availableTitles, setAvailableTitles] = useState([]);
 
-  const fetchFilteredProfiles = useCallback((roleFilter, searchText) => {
+  useEffect(() => {
     setLoading(true);
-    setApiProfiles(initialProfiles);
-    setProfiles(initialProfiles);
-    setAvailableTitles([]);
-    setTimeout(() => {
-      setApiProfiles(initialProfiles);
-      setProfiles(initialProfiles);
-      setAvailableTitles([]);
-      setLoading(false);
-    }, 1000);
+    fetch('https://web.ics.purdue.edu/~zong6/profile-app/get-titles.php')
+      .then(res => res.json())
+      .then(data => setAvailableTitles(data.titles || []))
+      .catch(err => console.error('Error fetching titles:', err))
+      .finally(() => setLoading(false));
   }, []);
 
-  const addProfile = useCallback((profile) => {
-    setProfiles([...profiles, profile]);
-    setApiProfiles([...apiProfiles, profile]);
-  }, [profiles, apiProfiles]);
+  const fetchFilteredProfiles = useCallback((roleFilter, searchText) => {
+    setLoading(true);
+    const params = new URLSearchParams();
+    if (roleFilter) params.append('title', roleFilter);
+    if (searchText) params.append('name', searchText);
 
-  const deleteProfile = useCallback((id) => {
-    setProfiles(profiles.filter(profile => profile.id !== id));
-    setApiProfiles(apiProfiles.filter(profile => profile.id !== id));
-  }, [profiles, apiProfiles]);
+    fetch(`https://web.ics.purdue.edu/~zong6/profile-app/fetch-data-with-filter.php?${params}`)
+      .then(res => res.json())
+      .then(data => setProfiles(data.data || []))
+      .catch(err => setError('Failed to fetch'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const addProfile = useCallback((newProfile) => {
+    setProfiles(prev => [...prev, newProfile]);
+  }, []);
+
+  const deleteProfile = useCallback((profileId) => {
+    setProfiles(prev => prev.filter(p => p.id !== profileId));
+  }, []);
 
   const resetProfiles = useCallback(() => {
     setProfiles(initialProfiles);
-    setApiProfiles(initialProfiles);
-  }, []);
+  }, [initialProfiles]);
 
   return {
     profiles,
-    apiProfiles,
     loading,
     error,
     availableTitles,
