@@ -1,7 +1,7 @@
 // Lab 13
 
 import React, { useState, useCallback, useMemo, lazy, Suspense, useEffect, useContext } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import styles from './App.module.css';
 
 // Import components
@@ -295,10 +295,8 @@ function AppContent() {
 
 export default function App() {
   return (
-    <Router>
-      <ModeProvider>
-        <AppContent />
-      </ModeProvider>
-    </Router>
+    <ModeProvider>
+      <AppContent />
+    </ModeProvider>
   );
 }
